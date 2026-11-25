@@ -1,0 +1,65 @@
+
+name: CI - Registro Voti
+
+# Avvia la pipeline a ogni push e pull request verso main
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Definisce i permessi del workflow
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }} - ${{ matrix.os }}
+
+    # Matrice con 6 combinazioni
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    # Sistema operativo su cui eseguire i test
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # Scarica il codice del repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Installa la versione Python prevista dalla matrice
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Installa le dipendenze
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Esegue i test e controlla la copertura minima dell'80%
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=registro --cov-report=term-missing --cov-fail-under=80
+
+      # Genera il report HTML solo su Ubuntu con Python 3.12
+      - name: Generate HTML coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: |
+          pytest --cov=registro --cov-report=html
+
+      # Salva il report HTML come artifact scaricabile
+      - name: Upload coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
